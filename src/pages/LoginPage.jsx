@@ -17,7 +17,7 @@ export default function LoginPage() {
     try {
       const data = await login(email, password);
       localStorage.setItem('token', data.token);
-      navigate('/dashboard');
+      navigate('/tournaments');
     } catch (e) {
       setError('Credenciales incorrectas. Verifica tu email y contraseña.');
     } finally {

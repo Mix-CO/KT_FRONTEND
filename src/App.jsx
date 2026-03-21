@@ -1,5 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
+import TournamentsPage from './pages/TournamentsPage';
+import NewTournamentPage from './pages/NewTournamentPage';
+import DashboardPage from './pages/DashboardPage';
 
 function App() {
   return (
@@ -7,7 +10,9 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" />} />
         <Route path="/login" element={<LoginPage />} />
-        {/* próximas rutas aquí */}
+        <Route path="/tournaments" element={<TournamentsPage />} />
+        <Route path="/tournaments/new" element={<NewTournamentPage />} />
+        <Route path="/tournament/:tournamentId/dashboard" element={<DashboardPage />} />
       </Routes>
     </BrowserRouter>
   );
