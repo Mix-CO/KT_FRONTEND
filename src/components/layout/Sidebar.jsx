@@ -6,7 +6,7 @@ const navItems = [
   { label: 'Schedules', icon: '📅', path: 'schedules' },
   { label: 'Teams', icon: '👥', path: 'teams' },
   { label: 'Standings', icon: '📊', path: 'standings' },
-  { label: 'Settings', icon: '⚙', path: 'settings' },
+  { label: 'Perfil', icon: '👤', path: '/profile', isGlobal: true },
 ];
 
 export default function Sidebar() {
@@ -34,7 +34,13 @@ export default function Sidebar() {
         {/* Nav */}
         <nav className="flex flex-col gap-1">
           {navItems.map((item) => {
-            const fullPath = `/tournament/${tournamentId}/${item.path}`;
+            const fallbackTournamentId = activeTournament?.id;
+            const resolvedTournamentId = tournamentId || fallbackTournamentId;
+            const fullPath = item.isGlobal
+              ? item.path
+              : resolvedTournamentId
+                ? `/tournament/${resolvedTournamentId}/${item.path}`
+                : '/tournaments';
             const isActive = location.pathname.includes(item.path);
             return (
               <button
