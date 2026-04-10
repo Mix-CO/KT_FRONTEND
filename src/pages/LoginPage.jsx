@@ -140,6 +140,26 @@ export default function LoginPage() {
             {loading ? 'Signing in...' : 'Sign In →'}
           </button>
 
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-gray-400 text-xs font-medium">or continue with</span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+
+          {/* Google OAuth */}
+          <button
+              onClick={() => window.location.href = 'http://localhost:8080/oauth2/authorization/google'}
+              className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg py-3 hover:bg-gray-50 transition"
+          >
+            <img
+                src="https://www.svgrepo.com/show/475656/google-color.svg"
+                className="w-5 h-5"
+                alt="Google"
+            />
+            <span className="text-sm font-semibold text-gray-700">Continue with Google</span>
+          </button>
+
           {/* Registro */}
           <p className="text-center text-gray-500 text-sm mt-6">
             New to the tournament?{' '}

@@ -7,6 +7,7 @@ import CreateTeamPage from './pages/CreateTeamPage';
 import TeamViewPage from './pages/TeamViewPage';
 import EditProfilePage from './pages/EditProfilePage';
 import ProfileViewPage from './pages/ProfileViewPage';
+import OAuthCallback from './pages/OAuthCallback';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/oauth2/callback" element={<OAuthCallback />} />
         <Route path="/tournaments" element={<TournamentsPage />} />
         <Route path="/tournaments/new" element={<NewTournamentPage />} />
         <Route path="/profile" element={<ProfileViewPage />} />
