@@ -31,6 +31,7 @@ export default function SchedulingSessionPage() {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState(null);
+  const [wsConnected, setWsConnected] = useState(false);
 
   const token = localStorage.getItem('token');
   const userId = token ? JSON.parse(atob(token.split('.')[1])).userId : null;
@@ -40,23 +41,44 @@ export default function SchedulingSessionPage() {
     setTimeout(() => setNotification(null), 4000);
   };
 
+  const refreshMatches = useCallback(() => {
+    getMatchesByTournament(tournamentId).then((matchList) => {
+      setMatches(matchList.filter((m) => m.status === 'SCHEDULED'));
+    });
+  }, [tournamentId]);
+
   const handleTimeSlotUpdate = useCallback((data) => {
+    console.log('>>> WebSocket update received:', data);
     const { timeSlotId, status } = data;
     setTimeSlots((prev) =>
       prev.map((ts) => ts.id === timeSlotId ? { ...ts, status } : ts)
     );
-    if (status === 'LOCKED') showNotification('Una franja fue bloqueada', 'warning');
-    else if (status === 'RESERVED') showNotification('¡Franja confirmada!', 'success');
-    else if (status === 'EXPIRED') showNotification('Una franja expiró', 'info');
-    else if (status === 'AVAILABLE') showNotification('Una franja fue liberada', 'info');
-  }, []);
+    if (status === 'RESERVED') {
+      refreshMatches();
+      setSelectedMatch(null);
+      showNotification('¡Franja confirmada!', 'success');
+    } else if (status === 'LOCKED') {
+      showNotification('Una franja fue bloqueada', 'warning');
+    } else if (status === 'EXPIRED') {
+      showNotification('Una franja expiró', 'info');
+    } else if (status === 'AVAILABLE') {
+      showNotification('Una franja fue liberada', 'info');
+    }
+  }, [refreshMatches]);
 
-  const { subscribeToTimeSlot, client } = useWebSocket({ onTimeSlotUpdate: handleTimeSlotUpdate });
+  const { subscribeToTimeSlot } = useWebSocket({
+    onTimeSlotUpdate: handleTimeSlotUpdate,
+    onConnect: () => {
+      console.log('>>> WS onConnect fired');
+      setWsConnected(true);
+    },
+  });
 
   useEffect(() => {
-    if (!client.current?.connected) return;
+    if (!wsConnected || timeSlots.length === 0) return;
+    console.log('>>> Subscribing to', timeSlots.length, 'timeslots');
     timeSlots.forEach((ts) => subscribeToTimeSlot(ts.id));
-  }, [timeSlots, subscribeToTimeSlot, client]);
+  }, [wsConnected, timeSlots, subscribeToTimeSlot]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -126,7 +148,6 @@ export default function SchedulingSessionPage() {
     }
   };
 
-  // Organiza slots en grid: { startTime -> { dayOfWeek -> slot } }
   const grid = {};
   TIME_SLOTS_ORDER.forEach((time) => { grid[time] = {}; });
   timeSlots.forEach((slot) => {
@@ -161,7 +182,6 @@ export default function SchedulingSessionPage() {
     <Layout>
       <div className="p-6">
 
-        {/* Header */}
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Sesión de Programación</h1>
@@ -182,7 +202,6 @@ export default function SchedulingSessionPage() {
           </div>
         </div>
 
-        {/* Notificación */}
         {notification && (
           <div className={`mb-4 px-4 py-3 rounded-xl text-sm font-medium border ${
             notification.type === 'success' ? 'bg-green-50 border-green-300 text-green-700' :
@@ -196,7 +215,6 @@ export default function SchedulingSessionPage() {
 
         <div className="flex gap-5">
 
-          {/* Panel izquierdo — partidos */}
           <div className="w-52 shrink-0">
             <div className="bg-white rounded-2xl border border-gray-100 p-4">
               <h2 className="font-bold text-gray-800 text-sm mb-3">Partidos sin programar</h2>
@@ -223,7 +241,6 @@ export default function SchedulingSessionPage() {
             </div>
           </div>
 
-          {/* Grid calendario */}
           <div className="flex-1 bg-white rounded-2xl border border-gray-100 overflow-x-auto">
             <table className="w-full text-xs border-collapse">
               <thead>
@@ -268,7 +285,6 @@ export default function SchedulingSessionPage() {
           </div>
         </div>
 
-        {/* Panel reservas pendientes */}
         {pendingReservations.length > 0 && (
           <div className="mt-5 bg-yellow-50 border border-yellow-200 rounded-2xl p-5">
             <h2 className="font-bold text-yellow-800 mb-3 text-sm">

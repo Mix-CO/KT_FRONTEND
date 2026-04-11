@@ -2,38 +2,56 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
-export default function useWebSocket({ onTimeSlotUpdate }) {
+export default function useWebSocket({ onTimeSlotUpdate, onConnect: onConnectCallback }) {
   const clientRef = useRef(null);
+  const subscriptionsRef = useRef(new Set());
+  const onTimeSlotUpdateRef = useRef(onTimeSlotUpdate);
+  const onConnectCallbackRef = useRef(onConnectCallback);
 
-  const connect = useCallback(() => {
+  useEffect(() => {
+    onTimeSlotUpdateRef.current = onTimeSlotUpdate;
+  }, [onTimeSlotUpdate]);
+
+  useEffect(() => {
+    onConnectCallbackRef.current = onConnectCallback;
+  }, [onConnectCallback]);
+
+  const subscribeToTimeSlot = useCallback((timeSlotId) => {
+    if (!clientRef.current?.connected) return;
+    if (subscriptionsRef.current.has(timeSlotId)) return;
+
+    clientRef.current.subscribe(
+      `/topic/timeslots/${timeSlotId}`,
+      (message) => {
+        const data = JSON.parse(message.body);
+        onTimeSlotUpdateRef.current(data);
+      }
+    );
+    subscriptionsRef.current.add(timeSlotId);
+  }, []);
+
+  useEffect(() => {
     const client = new Client({
-      webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+      webSocketFactory: () => new SockJS('https://kt-backend-1ge5.onrender.com/ws'),
       reconnectDelay: 5000,
       onConnect: () => {
         console.log('WebSocket connected');
+        subscriptionsRef.current.clear();
+        if (onConnectCallbackRef.current) onConnectCallbackRef.current();
       },
       onDisconnect: () => {
         console.log('WebSocket disconnected');
+        subscriptionsRef.current.clear();
       },
     });
 
     clientRef.current = client;
     client.activate();
 
-    return client;
+    return () => {
+      client.deactivate();
+    };
   }, []);
-
-  const subscribeToTimeSlot = useCallback((timeSlotId) => {
-    if (!clientRef.current?.connected) return;
-
-    clientRef.current.subscribe(
-      `/topic/timeslots/${timeSlotId}`,
-      (message) => {
-        const data = JSON.parse(message.body);
-        onTimeSlotUpdate(data);
-      }
-    );
-  }, [onTimeSlotUpdate]);
 
   const sendReservationRequest = useCallback((payload) => {
     if (!clientRef.current?.connected) return;
@@ -50,13 +68,6 @@ export default function useWebSocket({ onTimeSlotUpdate }) {
       body: JSON.stringify(payload),
     });
   }, []);
-
-  useEffect(() => {
-    const client = connect();
-    return () => {
-      client.deactivate();
-    };
-  }, [connect]);
 
   return {
     subscribeToTimeSlot,

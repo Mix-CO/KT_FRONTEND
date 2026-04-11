@@ -149,7 +149,7 @@ export default function LoginPage() {
 
           {/* Google OAuth */}
           <button
-              onClick={() => window.location.href = 'http://localhost:8080/oauth2/authorization/google'}
+              onClick={() => window.location.href = 'https://kt-backend-1ge5.onrender.com/oauth2/authorization/google'}
               className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg py-3 hover:bg-gray-50 transition"
           >
             <img
