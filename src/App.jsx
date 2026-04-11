@@ -8,6 +8,7 @@ import TeamViewPage from './pages/TeamViewPage';
 import EditProfilePage from './pages/EditProfilePage';
 import ProfileViewPage from './pages/ProfileViewPage';
 import OAuthCallback from './pages/OAuthCallback';
+import SchedulingSessionPage from './pages/SchedulingSessionPage';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
         <Route path="/tournament/:tournamentId/dashboard" element={<DashboardPage />} />
         <Route path="/tournament/:tournamentId/teams" element={<TeamViewPage />} />
         <Route path="/tournament/:tournamentId/teams/new" element={<CreateTeamPage />} />
+        <Route path="/tournament/:tournamentId/scheduling" element={<SchedulingSessionPage />} />
       </Routes>
     </BrowserRouter>
   );

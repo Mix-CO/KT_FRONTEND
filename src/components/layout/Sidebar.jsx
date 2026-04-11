@@ -7,6 +7,7 @@ const navItems = [
   { label: 'Teams', icon: '👥', path: 'teams' },
   { label: 'Standings', icon: '📊', path: 'standings' },
   { label: 'Perfil', icon: '👤', path: '/profile', isGlobal: true },
+  { label: 'Schedules', icon: '📅', path: 'scheduling' },
 ];
 
 export default function Sidebar() {
