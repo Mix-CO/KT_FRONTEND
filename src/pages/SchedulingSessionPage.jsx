@@ -96,6 +96,8 @@ export default function SchedulingSessionPage() {
     setTimeout(() => setNotification(null), 4000);
   };
 
+  const isSlotClickable = (slot) => slot && slot.status !== 'RESERVED';
+
   const refreshMatches = useCallback(() => {
     getMatchesByTournament(tournamentId).then((matchList) => {
       setMatches(matchList.filter((m) => m.status === 'SCHEDULED'));
@@ -188,7 +190,7 @@ export default function SchedulingSessionPage() {
       showNotification('Selecciona un partido primero', 'warning');
       return;
     }
-    if (slot.status === 'RESERVED') {
+    if (!isSlotClickable(slot)) {
       showNotification('Esta franja ya está reservada', 'warning');
       return;
     }
@@ -200,7 +202,7 @@ export default function SchedulingSessionPage() {
       });
 
       if (slot.status === 'LOCKED') {
-        showNotification('⚡ Franja disputada — decidiendo al azar...', 'warning');
+        showNotification('⚡ Franja disputada — se resolvió el conflicto al azar', 'warning');
       } else {
         showNotification('Franja propuesta — esperando confirmación del capitán rival', 'success');
       }
@@ -276,7 +278,7 @@ export default function SchedulingSessionPage() {
             <h1 className="text-2xl font-bold text-gray-900">Sesión de Programación</h1>
             <p className="text-gray-500 text-sm mt-1">
               Selecciona un partido y haz click en una franja para proponerla.
-              Las franjas amarillas están disputadas — puedes retarlas.
+              Las franjas amarillas están disputadas — también puedes retarlas si otro capitán la bloqueó.
             </p>
           </div>
           <div className="flex items-center gap-4 text-xs">
@@ -356,9 +358,23 @@ export default function SchedulingSessionPage() {
                           {slot ? (
                             <button
                               onClick={() => handleProposeSlot(slot)}
-                              disabled={slot.status === 'RESERVED'}
-                              style={{ cursor: slot.status === 'RESERVED' ? 'not-allowed' : 'pointer' }}
-                              className={`w-full h-10 rounded-lg border text-xs font-medium transition-all ${getSlotStyle(slot)}`}
+                              disabled={!isSlotClickable(slot)}
+                              aria-label={
+                                slot.status === 'LOCKED'
+                                  ? 'Disputar franja bloqueada'
+                                  : slot.status === 'RESERVED'
+                                    ? 'Franja reservada'
+                                    : 'Proponer franja'
+                              }
+                              title={
+                                slot.status === 'LOCKED'
+                                  ? 'Franja bloqueada: haz clic para disputarla'
+                                  : slot.status === 'RESERVED'
+                                    ? 'Franja reservada'
+                                    : 'Franja disponible: haz clic para proponerla'
+                              }
+                              style={{ cursor: isSlotClickable(slot) ? 'pointer' : 'not-allowed' }}
+                              className={`w-full h-10 rounded-lg border text-xs font-medium transition-all ${getSlotStyle(slot)} ${slot.status === 'LOCKED' ? 'ring-1 ring-yellow-400' : ''}`}
                             >
                               {slot.status === 'LOCKED' && '⚡'}
                               {slot.status === 'RESERVED' && '✓'}
