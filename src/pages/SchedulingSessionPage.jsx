@@ -357,6 +357,7 @@ export default function SchedulingSessionPage() {
                             <button
                               onClick={() => handleProposeSlot(slot)}
                               disabled={slot.status === 'RESERVED'}
+                              style={{ cursor: slot.status === 'RESERVED' ? 'not-allowed' : 'pointer' }}
                               className={`w-full h-10 rounded-lg border text-xs font-medium transition-all ${getSlotStyle(slot)}`}
                             >
                               {slot.status === 'LOCKED' && '⚡'}
