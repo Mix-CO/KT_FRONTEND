@@ -7,20 +7,74 @@ import { createReservation, updateReservationStatus, getReservationsForMatch } f
 import useWebSocket from '../hooks/useWebSocket';
 
 const DAY_LABELS = {
-  MONDAY: 'Lunes',
-  TUESDAY: 'Martes',
-  WEDNESDAY: 'Miércoles',
-  THURSDAY: 'Jueves',
-  FRIDAY: 'Viernes',
-  SATURDAY: 'Sábado',
-  SUNDAY: 'Domingo',
+  MONDAY: 'Lunes', TUESDAY: 'Martes', WEDNESDAY: 'Miércoles',
+  THURSDAY: 'Jueves', FRIDAY: 'Viernes', SATURDAY: 'Sábado', SUNDAY: 'Domingo',
 };
 
 const DAYS_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+const TIME_SLOTS_ORDER = ['07:00', '08:30', '10:00', '11:30', '13:00', '14:30', '16:00', '17:30'];
 
-const TIME_SLOTS_ORDER = [
-  '07:00', '08:30', '10:00', '11:30', '13:00', '14:30', '16:00', '17:30'
-];
+// Componente animación moneda
+function CoinFlipModal({ result, onClose }) {
+  const [phase, setPhase] = useState('flipping'); // flipping | result
+
+  useEffect(() => {
+    const timer = setTimeout(() => setPhase('result'), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (phase === 'result') {
+      const timer = setTimeout(onClose, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [phase, onClose]);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+      <div className="bg-white rounded-3xl p-10 flex flex-col items-center gap-6 shadow-2xl max-w-sm w-full mx-4">
+        <h2 className="text-xl font-bold text-gray-900 text-center">
+          ⚡ Conflicto de franja
+        </h2>
+        <p className="text-gray-500 text-sm text-center">
+          Dos capitanes pidieron la misma franja — se decide al azar
+        </p>
+
+        {/* Moneda */}
+        <div className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl shadow-lg
+          ${phase === 'flipping'
+            ? 'animate-spin bg-yellow-400'
+            : result === 'won'
+              ? 'bg-green-400 scale-110 transition-transform duration-500'
+              : 'bg-red-400 scale-110 transition-transform duration-500'
+          }`}
+        >
+          {phase === 'flipping' ? '🪙' : result === 'won' ? '🏆' : '😔'}
+        </div>
+
+        {phase === 'result' && (
+          <div className="text-center">
+            {result === 'won' ? (
+              <>
+                <p className="text-green-600 font-bold text-lg">¡Ganaste!</p>
+                <p className="text-gray-500 text-sm mt-1">La franja es tuya — espera confirmación del rival</p>
+              </>
+            ) : (
+              <>
+                <p className="text-red-500 font-bold text-lg">Perdiste el sorteo</p>
+                <p className="text-gray-500 text-sm mt-1">Selecciona otra franja para tu partido</p>
+              </>
+            )}
+          </div>
+        )}
+
+        {phase === 'flipping' && (
+          <p className="text-gray-400 text-xs animate-pulse">Decidiendo...</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function SchedulingSessionPage() {
   const { tournamentId } = useParams();
@@ -32,6 +86,7 @@ export default function SchedulingSessionPage() {
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState(null);
   const [wsConnected, setWsConnected] = useState(false);
+  const [coinFlip, setCoinFlip] = useState(null); // { result: 'won' | 'lost' }
 
   const token = localStorage.getItem('token');
   const userId = token ? JSON.parse(atob(token.split('.')[1])).userId : null;
@@ -49,22 +104,43 @@ export default function SchedulingSessionPage() {
 
   const handleTimeSlotUpdate = useCallback((data) => {
     console.log('>>> WebSocket update received:', data);
-    const { timeSlotId, status } = data;
+    const { timeSlotId, status, conflictResolved, winnerId, loserId } = data;
+
+    // Actualiza estado de la franja
     setTimeSlots((prev) =>
       prev.map((ts) => ts.id === timeSlotId ? { ...ts, status } : ts)
     );
+
+    // Maneja conflicto
+    if (conflictResolved) {
+      const myReservationWon = winnerId && String(winnerId) === String(userId);
+      const myReservationLost = loserId && String(loserId) === String(userId);
+
+      if (myReservationWon) {
+        setCoinFlip({ result: 'won' });
+      } else if (myReservationLost) {
+        setCoinFlip({ result: 'lost' });
+        // Refresca reservas del partido seleccionado
+        if (selectedMatch) {
+          getReservationsForMatch(selectedMatch.id).then(setReservations);
+        }
+      }
+      return; // No mostrar notificación genérica en caso de conflicto
+    }
+
+    // Notificaciones normales
     if (status === 'RESERVED') {
       refreshMatches();
       setSelectedMatch(null);
       showNotification('¡Franja confirmada!', 'success');
     } else if (status === 'LOCKED') {
-      showNotification('Una franja fue bloqueada', 'warning');
+      showNotification('Una franja fue bloqueada por otro capitán', 'warning');
     } else if (status === 'EXPIRED') {
-      showNotification('Una franja expiró', 'info');
+      showNotification('Una franja expiró y volvió a estar disponible', 'info');
     } else if (status === 'AVAILABLE') {
       showNotification('Una franja fue liberada', 'info');
     }
-  }, [refreshMatches]);
+  }, [refreshMatches, selectedMatch, userId]);
 
   const { subscribeToTimeSlot } = useWebSocket({
     onTimeSlotUpdate: handleTimeSlotUpdate,
@@ -76,7 +152,6 @@ export default function SchedulingSessionPage() {
 
   useEffect(() => {
     if (!wsConnected || timeSlots.length === 0) return;
-    console.log('>>> Subscribing to', timeSlots.length, 'timeslots');
     timeSlots.forEach((ts) => subscribeToTimeSlot(ts.id));
   }, [wsConnected, timeSlots, subscribeToTimeSlot]);
 
@@ -113,8 +188,8 @@ export default function SchedulingSessionPage() {
       showNotification('Selecciona un partido primero', 'warning');
       return;
     }
-    if (slot.status !== 'AVAILABLE') {
-      showNotification('Esta franja no está disponible', 'warning');
+    if (slot.status === 'RESERVED') {
+      showNotification('Esta franja ya está reservada', 'warning');
       return;
     }
     try {
@@ -123,7 +198,13 @@ export default function SchedulingSessionPage() {
         timeSlotId: slot.id,
         userId,
       });
-      showNotification('Franja propuesta — esperando confirmación del capitán rival', 'success');
+
+      if (slot.status === 'LOCKED') {
+        showNotification('⚡ Franja disputada — decidiendo al azar...', 'warning');
+      } else {
+        showNotification('Franja propuesta — esperando confirmación del capitán rival', 'success');
+      }
+
       const res = await getReservationsForMatch(selectedMatch.id);
       setReservations(res);
     } catch (e) {
@@ -163,8 +244,8 @@ export default function SchedulingSessionPage() {
 
   const getSlotStyle = (slot) => {
     if (!slot) return 'bg-gray-50 border-gray-100';
-    if (slot.status === 'LOCKED') return 'bg-yellow-100 border-yellow-300 cursor-not-allowed';
     if (slot.status === 'RESERVED') return 'bg-red-100 border-red-300 cursor-not-allowed';
+    if (slot.status === 'LOCKED') return 'bg-yellow-100 border-yellow-300 hover:bg-yellow-200 cursor-pointer';
     return 'bg-green-50 border-green-300 hover:bg-green-100 hover:border-green-500 cursor-pointer';
   };
 
@@ -180,13 +261,22 @@ export default function SchedulingSessionPage() {
 
   return (
     <Layout>
+      {/* Modal conflicto */}
+      {coinFlip && (
+        <CoinFlipModal
+          result={coinFlip.result}
+          onClose={() => setCoinFlip(null)}
+        />
+      )}
+
       <div className="p-6">
 
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Sesión de Programación</h1>
             <p className="text-gray-500 text-sm mt-1">
-              Selecciona un partido y luego haz click en una franja para proponerla.
+              Selecciona un partido y haz click en una franja para proponerla.
+              Las franjas amarillas están disputadas — puedes retarlas.
             </p>
           </div>
           <div className="flex items-center gap-4 text-xs">
@@ -194,7 +284,7 @@ export default function SchedulingSessionPage() {
               <span className="w-3 h-3 rounded bg-green-200 inline-block border border-green-400"></span> Disponible
             </span>
             <span className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded bg-yellow-200 inline-block border border-yellow-400"></span> Bloqueada
+              <span className="w-3 h-3 rounded bg-yellow-200 inline-block border border-yellow-400"></span> Disputada
             </span>
             <span className="flex items-center gap-1">
               <span className="w-3 h-3 rounded bg-red-200 inline-block border border-red-400"></span> Reservada
@@ -266,10 +356,10 @@ export default function SchedulingSessionPage() {
                           {slot ? (
                             <button
                               onClick={() => handleProposeSlot(slot)}
-                              disabled={slot.status !== 'AVAILABLE'}
+                              disabled={slot.status === 'RESERVED'}
                               className={`w-full h-10 rounded-lg border text-xs font-medium transition-all ${getSlotStyle(slot)}`}
                             >
-                              {slot.status === 'LOCKED' && '⏳'}
+                              {slot.status === 'LOCKED' && '⚡'}
                               {slot.status === 'RESERVED' && '✓'}
                             </button>
                           ) : (
@@ -323,7 +413,6 @@ export default function SchedulingSessionPage() {
             </div>
           </div>
         )}
-
       </div>
     </Layout>
   );
