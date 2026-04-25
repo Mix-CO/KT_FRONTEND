@@ -14,9 +14,8 @@ const DAY_LABELS = {
 const DAYS_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const TIME_SLOTS_ORDER = ['07:00', '08:30', '10:00', '11:30', '13:00', '14:30', '16:00', '17:30'];
 
-// Componente animación moneda
 function CoinFlipModal({ result, onClose }) {
-  const [phase, setPhase] = useState('flipping'); // flipping | result
+  const [phase, setPhase] = useState('flipping');
 
   useEffect(() => {
     const timer = setTimeout(() => setPhase('result'), 2000);
@@ -33,25 +32,19 @@ function CoinFlipModal({ result, onClose }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
       <div className="bg-white rounded-3xl p-10 flex flex-col items-center gap-6 shadow-2xl max-w-sm w-full mx-4">
-        <h2 className="text-xl font-bold text-gray-900 text-center">
-          ⚡ Conflicto de franja
-        </h2>
+        <h2 className="text-xl font-bold text-gray-900 text-center">⚡ Conflicto de franja</h2>
         <p className="text-gray-500 text-sm text-center">
           Dos capitanes pidieron la misma franja — se decide al azar
         </p>
-
-        {/* Moneda */}
         <div className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl shadow-lg
           ${phase === 'flipping'
             ? 'animate-spin bg-yellow-400'
             : result === 'won'
               ? 'bg-green-400 scale-110 transition-transform duration-500'
               : 'bg-red-400 scale-110 transition-transform duration-500'
-          }`}
-        >
+          }`}>
           {phase === 'flipping' ? '🪙' : result === 'won' ? '🏆' : '😔'}
         </div>
-
         {phase === 'result' && (
           <div className="text-center">
             {result === 'won' ? (
@@ -67,7 +60,6 @@ function CoinFlipModal({ result, onClose }) {
             )}
           </div>
         )}
-
         {phase === 'flipping' && (
           <p className="text-gray-400 text-xs animate-pulse">Decidiendo...</p>
         )}
@@ -86,7 +78,7 @@ export default function SchedulingSessionPage() {
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState(null);
   const [wsConnected, setWsConnected] = useState(false);
-  const [coinFlip, setCoinFlip] = useState(null); // { result: 'won' | 'lost' }
+  const [coinFlip, setCoinFlip] = useState(null);
 
   const token = localStorage.getItem('token');
   const userId = token ? JSON.parse(atob(token.split('.')[1])).userId : null;
@@ -108,29 +100,24 @@ export default function SchedulingSessionPage() {
     console.log('>>> WebSocket update received:', data);
     const { timeSlotId, status, conflictResolved, winnerId, loserId } = data;
 
-    // Actualiza estado de la franja
     setTimeSlots((prev) =>
       prev.map((ts) => ts.id === timeSlotId ? { ...ts, status } : ts)
     );
 
-    // Maneja conflicto
     if (conflictResolved) {
       const myReservationWon = winnerId && String(winnerId) === String(userId);
       const myReservationLost = loserId && String(loserId) === String(userId);
-
       if (myReservationWon) {
         setCoinFlip({ result: 'won' });
       } else if (myReservationLost) {
         setCoinFlip({ result: 'lost' });
-        // Refresca reservas del partido seleccionado
         if (selectedMatch) {
           getReservationsForMatch(selectedMatch.id).then(setReservations);
         }
       }
-      return; // No mostrar notificación genérica en caso de conflicto
+      return;
     }
 
-    // Notificaciones normales
     if (status === 'RESERVED') {
       refreshMatches();
       setSelectedMatch(null);
@@ -186,6 +173,7 @@ export default function SchedulingSessionPage() {
   };
 
   const handleProposeSlot = async (slot) => {
+    console.log('>>> click on slot', JSON.stringify(slot));
     if (!selectedMatch) {
       showNotification('Selecciona un partido primero', 'warning');
       return;
@@ -200,13 +188,11 @@ export default function SchedulingSessionPage() {
         timeSlotId: slot.id,
         userId,
       });
-
       if (slot.status === 'LOCKED') {
-        showNotification('⚡ Franja disputada — se resolvió el conflicto al azar', 'warning');
+        showNotification('⚡ Franja disputada — decidiendo al azar...', 'warning');
       } else {
         showNotification('Franja propuesta — esperando confirmación del capitán rival', 'success');
       }
-
       const res = await getReservationsForMatch(selectedMatch.id);
       setReservations(res);
     } catch (e) {
@@ -235,6 +221,7 @@ export default function SchedulingSessionPage() {
   TIME_SLOTS_ORDER.forEach((time) => { grid[time] = {}; });
   timeSlots.forEach((slot) => {
     const start = slot.start?.substring(0, 5);
+    console.log('>>> slot status from API:', slot.id, slot.status);
     if (grid[start] !== undefined) {
       grid[start][slot.dayOfWeek] = slot;
     }
@@ -263,7 +250,6 @@ export default function SchedulingSessionPage() {
 
   return (
     <Layout>
-      {/* Modal conflicto */}
       {coinFlip && (
         <CoinFlipModal
           result={coinFlip.result}
@@ -272,13 +258,12 @@ export default function SchedulingSessionPage() {
       )}
 
       <div className="p-6">
-
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Sesión de Programación</h1>
             <p className="text-gray-500 text-sm mt-1">
               Selecciona un partido y haz click en una franja para proponerla.
-              Las franjas amarillas están disputadas — también puedes retarlas si otro capitán la bloqueó.
+              Las franjas amarillas están disputadas — puedes retarlas.
             </p>
           </div>
           <div className="flex items-center gap-4 text-xs">
@@ -306,7 +291,6 @@ export default function SchedulingSessionPage() {
         )}
 
         <div className="flex gap-5">
-
           <div className="w-52 shrink-0">
             <div className="bg-white rounded-2xl border border-gray-100 p-4">
               <h2 className="font-bold text-gray-800 text-sm mb-3">Partidos sin programar</h2>
@@ -359,22 +343,8 @@ export default function SchedulingSessionPage() {
                             <button
                               onClick={() => handleProposeSlot(slot)}
                               disabled={!isSlotClickable(slot)}
-                              aria-label={
-                                slot.status === 'LOCKED'
-                                  ? 'Disputar franja bloqueada'
-                                  : slot.status === 'RESERVED'
-                                    ? 'Franja reservada'
-                                    : 'Proponer franja'
-                              }
-                              title={
-                                slot.status === 'LOCKED'
-                                  ? 'Franja bloqueada: haz clic para disputarla'
-                                  : slot.status === 'RESERVED'
-                                    ? 'Franja reservada'
-                                    : 'Franja disponible: haz clic para proponerla'
-                              }
                               style={{ cursor: isSlotClickable(slot) ? 'pointer' : 'not-allowed' }}
-                              className={`w-full h-10 rounded-lg border text-xs font-medium transition-all ${getSlotStyle(slot)} ${slot.status === 'LOCKED' ? 'ring-1 ring-yellow-400' : ''}`}
+                              className={`w-full h-10 rounded-lg border text-xs font-medium transition-all ${getSlotStyle(slot)}`}
                             >
                               {slot.status === 'LOCKED' && '⚡'}
                               {slot.status === 'RESERVED' && '✓'}
