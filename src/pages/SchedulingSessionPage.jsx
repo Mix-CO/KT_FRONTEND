@@ -97,12 +97,19 @@ export default function SchedulingSessionPage() {
   }, [tournamentId]);
 
   const handleTimeSlotUpdate = useCallback((data) => {
-    console.log('>>> WebSocket update received:', data);
+    console.log('>>> WS update:', data);
+    console.log('>>> timeSlotId type:', typeof data.timeSlotId, data.timeSlotId);
+
     const { timeSlotId, status, conflictResolved, winnerId, loserId } = data;
 
-    setTimeSlots((prev) =>
-      prev.map((ts) => ts.id === timeSlotId ? { ...ts, status } : ts)
-    );
+    setTimeSlots((prev) => {
+      console.log('>>> prev slots ids:', prev.map(ts => `${ts.id}(${typeof ts.id})`).join(', '));
+      const updated = prev.map((ts) =>
+        Number(ts.id) === Number(timeSlotId) ? { ...ts, status } : ts
+      );
+      console.log('>>> updated slot:', updated.find(ts => Number(ts.id) === Number(timeSlotId)));
+      return updated;
+    });
 
     if (conflictResolved) {
       const myReservationWon = winnerId && String(winnerId) === String(userId);
@@ -173,7 +180,7 @@ export default function SchedulingSessionPage() {
   };
 
   const handleProposeSlot = async (slot) => {
-    console.log('>>> click on slot', JSON.stringify(slot));
+    console.log('>>> handleProposeSlot called, status:', slot.status, 'id:', slot.id);
     if (!selectedMatch) {
       showNotification('Selecciona un partido primero', 'warning');
       return;
@@ -221,11 +228,16 @@ export default function SchedulingSessionPage() {
   TIME_SLOTS_ORDER.forEach((time) => { grid[time] = {}; });
   timeSlots.forEach((slot) => {
     const start = slot.start?.substring(0, 5);
-    console.log('>>> slot status from API:', slot.id, slot.status);
     if (grid[start] !== undefined) {
       grid[start][slot.dayOfWeek] = slot;
     }
   });
+
+  // Debug log
+  const lockedSlots = timeSlots.filter(ts => ts.status === 'LOCKED');
+  if (lockedSlots.length > 0) {
+    console.log('>>> LOCKED slots in state:', lockedSlots.map(ts => ts.id));
+  }
 
   const pendingReservations = reservations.filter(
     (r) => r.status === 'PENDING' && r.proposedByUserId !== userId
