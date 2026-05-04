@@ -1,320 +1,270 @@
 import { useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
+import { createTeam, addPlayerToTeam } from '../api/teams';
 
-const FACULTIES = [
-  'Ingenieria',
-  'Arquitectura',
-  'Medicina',
-  'Derecho',
-  'Economia',
-  'Humanidades',
-];
+function getUserIdFromToken() {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    return JSON.parse(atob(token.split('.')[1])).userId;
+  } catch {
+    return null;
+  }
+}
 
-const POSITIONS = ['Arquero', 'Defensa', 'Mediocentro', 'Delantero'];
+const EMPTY_PLAYER = { name: '', studentId: '', email: '' };
 
 export default function CreateTeamPage() {
-  const [form, setForm] = useState({
-    teamName: '',
-    faculty: '',
-    primaryColor: '#13EC13',
-    secondaryColor: '#182210',
-    captainName: 'Carlos Mendez',
-    captainId: '202300458',
-  });
+  const navigate = useNavigate();
+  const { tournamentId } = useParams();
 
-  const [players, setPlayers] = useState([
-    {
-      id: 'cmendez@univ.edu',
-      name: 'Carlos Mendez (C)',
-      position: 'Mediocentro',
-      locked: true,
-    },
-    {
-      id: 'jgarcia@univ.edu',
-      name: 'Juan Garcia',
-      position: 'Arquero',
-      locked: false,
-    },
-  ]);
-
-  const [playerCounter, setPlayerCounter] = useState(3);
-
-  const rosterTarget = 12;
-  const canRegister = players.length >= 7;
+  const [teamName, setTeamName] = useState('');
+  const [players, setPlayers] = useState([{ ...EMPTY_PLAYER }]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
 
   const normalizedTeamName = useMemo(
-    () => form.teamName.trim() || 'Nombre del Equipo',
-    [form.teamName],
+    () => teamName.trim() || 'Nombre del Equipo',
+    [teamName],
   );
 
-  const handleChange = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const activeTournament = JSON.parse(localStorage.getItem('activeTournament') || '{}');
+  const minPlayers = activeTournament?.minPlayersPerTeam ?? 7;
+  const maxPlayers = activeTournament?.maxPlayersPerTeam ?? 12;
+
+  const canSubmit = teamName.trim().length > 0 && players.length >= minPlayers;
+
+  const handlePlayerChange = (idx, field, value) => {
+    setPlayers((prev) =>
+      prev.map((p, i) => (i === idx ? { ...p, [field]: value } : p)),
+    );
   };
 
   const handleAddPlayer = () => {
-    if (players.length >= rosterTarget) return;
-
-    const generatedPosition = POSITIONS[playerCounter % POSITIONS.length];
-    const generatedName = `Jugador ${playerCounter}`;
-    const generatedEmail = `jugador${playerCounter}@univ.edu`;
-
-    setPlayers((prev) => [
-      ...prev,
-      {
-        id: generatedEmail,
-        name: generatedName,
-        position: generatedPosition,
-        locked: false,
-      },
-    ]);
-    setPlayerCounter((prev) => prev + 1);
+    if (players.length >= maxPlayers) return;
+    setPlayers((prev) => [...prev, { ...EMPTY_PLAYER }]);
   };
 
-  const handleRemovePlayer = (playerId) => {
-    setPlayers((prev) => prev.filter((player) => player.id !== playerId));
+  const handleRemovePlayer = (idx) => {
+    if (players.length <= 1) return;
+    setPlayers((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const positionBadgeClass = (position) => {
-    if (position === 'Arquero') return 'bg-orange-100 text-orange-700';
-    if (position === 'Mediocentro') return 'bg-blue-100 text-blue-700';
-    if (position === 'Defensa') return 'bg-emerald-100 text-emerald-700';
-    return 'bg-violet-100 text-violet-700';
+  const handleSubmit = async () => {
+    setError(null);
+    const creatorUserId = getUserIdFromToken();
+    if (!creatorUserId) {
+      setError('No se pudo obtener tu sesión. Por favor vuelve a iniciar sesión.');
+      return;
+    }
+
+    // Validar que los jugadores tengan al menos nombre y email
+    const invalidPlayer = players.find((p) => !p.name.trim() || !p.email.trim());
+    if (invalidPlayer) {
+      setError('Todos los jugadores deben tener nombre y email.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        name: teamName.trim(),
+        logoUrl: null,
+        captainStudentId: null,
+        tournamentId: Number(tournamentId),
+        players: players.map((p) => ({
+          name: p.name.trim(),
+          studentId: p.studentId.trim() || null,
+          email: p.email.trim(),
+        })),
+      };
+
+      await createTeam(payload, creatorUserId);
+      navigate(`/tournament/${tournamentId}/teams`);
+    } catch (err) {
+      console.error(err);
+      const msg = err?.response?.data?.message || err?.message || 'Error al crear el equipo.';
+      setError(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <Layout>
       <div className="bg-gray-100 min-h-screen p-6 lg:p-8">
-        <div className="mx-auto max-w-[1300px] grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
+        <div className="mx-auto max-w-[1100px] grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-6">
 
           <section className="space-y-6">
             <header>
+              <button
+                type="button"
+                onClick={() => navigate(`/tournament/${tournamentId}/teams`)}
+                className="text-sm text-gray-400 hover:text-gray-700 font-semibold transition mb-3 flex items-center gap-1"
+              >
+                ← Volver a equipos
+              </button>
               <h1 className="text-3xl font-extrabold text-gray-900">Crear Nuevo Equipo</h1>
-              <p className="text-gray-500 mt-1">
-                Configura los detalles de tu escuadra para la proxima temporada.
+              <p className="text-gray-500 mt-1 text-sm">
+                Registra tu equipo para el torneo. Tú serás asignado automáticamente como capitán.
               </p>
             </header>
 
-            <article className="bg-white rounded-2xl border border-gray-200 p-5 lg:p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900 mb-4">Informacion Basica</h2>
-
-                  <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">
-                    Nombre del Equipo
-                  </label>
-                  <input
-                    type="text"
-                    value={form.teamName}
-                    onChange={(e) => handleChange('teamName', e.target.value)}
-                    placeholder="Ej. Los Galacticos FC"
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-green-500"
-                  />
-
-                  <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1 mt-4">
-                    Facultad
-                  </label>
-                  <select
-                    value={form.faculty}
-                    onChange={(e) => handleChange('faculty', e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-green-500"
-                  >
-                    <option value="">Selecciona una facultad</option>
-                    {FACULTIES.map((faculty) => (
-                      <option key={faculty} value={faculty}>
-                        {faculty}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900 mb-4">Identidad Visual</h2>
-
-                  <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">
-                    Escudo
-                  </label>
-                  <button
-                    type="button"
-                    className="w-full border border-dashed border-green-300 rounded-xl p-6 text-sm font-semibold text-green-600 hover:bg-green-50 transition"
-                  >
-                    Subir Logo
-                  </button>
-
-                  <div className="grid grid-cols-2 gap-3 mt-4">
-                    <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wide text-gray-500 mb-1">
-                        Primario
-                      </label>
-                      <div className="h-10 rounded-lg border border-gray-200 flex items-center overflow-hidden">
-                        <input
-                          type="color"
-                          value={form.primaryColor}
-                          onChange={(e) => handleChange('primaryColor', e.target.value)}
-                          className="h-full w-11 cursor-pointer border-0 bg-transparent"
-                        />
-                        <span className="px-2 text-xs font-semibold text-gray-500">{form.primaryColor.toUpperCase()}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wide text-gray-500 mb-1">
-                        Secundario
-                      </label>
-                      <div className="h-10 rounded-lg border border-gray-200 flex items-center overflow-hidden">
-                        <input
-                          type="color"
-                          value={form.secondaryColor}
-                          onChange={(e) => handleChange('secondaryColor', e.target.value)}
-                          className="h-full w-11 cursor-pointer border-0 bg-transparent"
-                        />
-                        <span className="px-2 text-xs font-semibold text-gray-500">{form.secondaryColor.toUpperCase()}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            {/* Error global */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600 font-semibold">
+                {error}
               </div>
+            )}
+
+            {/* Nombre del equipo */}
+            <article className="bg-white rounded-2xl border border-gray-200 p-5 lg:p-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-4">Información Básica</h2>
+              <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">
+                Nombre del Equipo
+              </label>
+              <input
+                type="text"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                placeholder="Ej. Los Galácticos FC"
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-green-500"
+              />
             </article>
 
-            <article className="bg-white rounded-2xl border border-gray-200 p-5 lg:p-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Datos del Capitan</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">
-                    Nombre Completo
-                  </label>
-                  <input
-                    type="text"
-                    value={form.captainName}
-                    onChange={(e) => handleChange('captainName', e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-green-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">
-                    ID Universitario
-                  </label>
-                  <input
-                    type="text"
-                    value={form.captainId}
-                    onChange={(e) => handleChange('captainId', e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-green-500"
-                  />
-                </div>
-              </div>
-            </article>
-
+            {/* Jugadores */}
             <article className="bg-white rounded-2xl border border-gray-200 p-5 lg:p-6">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <h2 className="text-lg font-bold text-gray-900">Lista de Jugadores</h2>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Jugadores</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Mínimo {minPlayers} · Máximo {maxPlayers}
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={handleAddPlayer}
-                  disabled={players.length >= rosterTarget}
-                  className="rounded-lg bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-bold px-4 py-2 transition"
+                  disabled={players.length >= maxPlayers}
+                  className="rounded-lg bg-green-500 hover:bg-green-600 disabled:opacity-40 text-white text-sm font-bold px-4 py-2 transition"
                 >
-                  + Anadir Jugador
+                  + Añadir Jugador
                 </button>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
-                <table className="w-full min-w-[680px] text-sm">
-                  <thead className="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-500">
-                    <tr>
-                      <th className="text-left px-4 py-3">ID / Email</th>
-                      <th className="text-left px-4 py-3">Nombre</th>
-                      <th className="text-left px-4 py-3">Posicion</th>
-                      <th className="text-left px-4 py-3">Accion</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {players.map((player) => (
-                      <tr key={player.id} className="border-t border-gray-100">
-                        <td className="px-4 py-3 text-gray-600">{player.id}</td>
-                        <td className="px-4 py-3 font-semibold text-gray-800">{player.name}</td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex px-2 py-1 rounded-md text-[11px] font-bold uppercase ${positionBadgeClass(player.position)}`}>
-                            {player.position}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            disabled={player.locked}
-                            onClick={() => handleRemovePlayer(player.id)}
-                            className="text-red-500 hover:text-red-700 disabled:text-gray-300 transition"
-                          >
-                            Eliminar
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-
-                    {players.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="text-center px-4 py-8 text-gray-400 text-xs">
-                          No hay jugadores anadidos
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+              <div className="space-y-3">
+                {players.map((player, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-xl border border-gray-200 p-4 bg-gray-50/50"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+                        Jugador {idx + 1}
+                      </span>
+                      {players.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePlayer(idx)}
+                          className="text-xs text-red-400 hover:text-red-600 font-semibold transition"
+                        >
+                          Eliminar
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1">
+                          Nombre <span className="text-red-400">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={player.name}
+                          onChange={(e) => handlePlayerChange(idx, 'name', e.target.value)}
+                          placeholder="Nombre completo"
+                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-green-500 transition"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1">
+                          Email <span className="text-red-400">*</span>
+                        </label>
+                        <input
+                          type="email"
+                          value={player.email}
+                          onChange={(e) => handlePlayerChange(idx, 'email', e.target.value)}
+                          placeholder="correo@universidad.edu"
+                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-green-500 transition"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1">
+                          ID Universitario
+                        </label>
+                        <input
+                          type="text"
+                          value={player.studentId}
+                          onChange={(e) => handlePlayerChange(idx, 'studentId', e.target.value)}
+                          placeholder="Ej. 202300458"
+                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-green-500 transition"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </article>
           </section>
 
-          <aside className="space-y-6">
+          {/* Sidebar de preview */}
+          <aside>
             <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm sticky top-6">
               <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">Vista Previa</p>
               </div>
 
               <div className="p-4">
-                <div
-                  className="rounded-xl p-4 mb-4"
-                  style={{ background: `linear-gradient(140deg, ${form.primaryColor} 0%, ${form.secondaryColor} 100%)` }}
-                >
-                  <div className="h-14 w-14 rounded-full bg-white/90 flex items-center justify-center mx-auto text-gray-700 font-black">
-                    KT
+                <div className="rounded-xl bg-gradient-to-br from-green-400 to-green-700 p-4 mb-4 flex items-center justify-center">
+                  <div className="h-14 w-14 rounded-full bg-white/90 flex items-center justify-center text-green-700 font-black text-xl">
+                    {teamName.trim().charAt(0) || '?'}
                   </div>
                 </div>
 
                 <p className="text-[11px] font-bold uppercase tracking-wide text-green-600">Nuevo Equipo</p>
                 <h3 className="text-xl font-extrabold text-gray-900 mt-1">{normalizedTeamName}</h3>
-                <p className="text-sm text-gray-500 mt-1">{form.faculty || 'Facultad Seleccionada'}</p>
 
-                <div className="mt-4 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-                  <div>
-                    <p className="text-[10px] uppercase font-bold tracking-wide text-gray-400">Capitan</p>
-                    <p className="text-sm font-semibold text-gray-800">{form.captainName || 'Sin asignar'}</p>
-                  </div>
-                  <div className={`h-5 w-10 rounded-full relative ${canRegister ? 'bg-green-200' : 'bg-gray-200'}`}>
-                    <span
-                      className={`absolute top-0.5 h-4 w-4 rounded-full transition ${canRegister ? 'left-5 bg-green-500' : 'left-0.5 bg-gray-400'}`}
-                    />
-                  </div>
+                <div className="mt-4 rounded-lg bg-gray-50 px-3 py-2">
+                  <p className="text-[10px] uppercase font-bold tracking-wide text-gray-400">Tú eres el Capitán</p>
+                  <p className="text-sm font-semibold text-gray-800 mt-0.5">Asignado automáticamente</p>
                 </div>
 
                 <div className="mt-5">
                   <div className="flex items-center justify-between text-sm font-semibold text-gray-700 mb-2">
-                    <span>Plantilla Completa</span>
-                    <span className="text-green-600">{players.length} / {rosterTarget}</span>
+                    <span>Jugadores</span>
+                    <span className={players.length >= minPlayers ? 'text-green-600' : 'text-amber-500'}>
+                      {players.length} / {maxPlayers}
+                    </span>
                   </div>
                   <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
                     <div
                       className="h-full bg-green-500 transition-all"
-                      style={{ width: `${(players.length / rosterTarget) * 100}%` }}
+                      style={{ width: `${Math.min((players.length / maxPlayers) * 100, 100)}%` }}
                     />
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Minimo 7 jugadores para registrar el equipo en el torneo oficial.
+                  <p className="text-xs text-gray-400 mt-2">
+                    {players.length < minPlayers
+                      ? `Faltan ${minPlayers - players.length} jugador${minPlayers - players.length !== 1 ? 'es' : ''} para el mínimo.`
+                      : '✓ Listo para registrar.'}
                   </p>
                 </div>
 
                 <button
                   type="button"
-                  disabled={!canRegister}
-                  className="w-full mt-6 rounded-xl bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white font-extrabold py-3 transition"
+                  disabled={!canSubmit || submitting}
+                  onClick={handleSubmit}
+                  className="w-full mt-6 rounded-xl bg-green-500 hover:bg-green-600 disabled:bg-green-200 disabled:cursor-not-allowed text-white font-extrabold py-3 transition"
                 >
-                  Registrar Equipo
+                  {submitting ? 'Registrando...' : 'Registrar Equipo'}
                 </button>
               </div>
             </div>
