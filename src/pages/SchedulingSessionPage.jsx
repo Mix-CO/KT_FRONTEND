@@ -136,8 +136,8 @@ export default function SchedulingSessionPage() {
       showNotification('Selecciona un partido primero', 'warning');
       return;
     }
-    if (slot.status !== 'AVAILABLE') {
-      showNotification('Esta franja no está disponible', 'warning');
+    if (slot.status === 'RESERVED') {
+      showNotification('Esta franja ya está reservada', 'warning');
       return;
     }
     try {
@@ -287,14 +287,14 @@ export default function SchedulingSessionPage() {
                       return (
                         <td key={day} className="px-1 py-1">
                           {slot ? (
-                            <button
-                              onClick={() => handleProposeSlot(slot)}
-                              disabled={slot.status !== 'AVAILABLE'}
-                              className={`w-full h-10 rounded-lg border text-xs font-medium transition-all ${getSlotStyle(slot)}`}
-                            >
-                              {slot.status === 'LOCKED' && '⏳'}
-                              {slot.status === 'RESERVED' && '✓'}
-                            </button>
+                              <button
+                                  onClick={() => handleProposeSlot(slot)}
+                                  disabled={slot.status === 'RESERVED'}
+                                  className={`w-full h-10 rounded-lg border text-xs font-medium transition-all ${getSlotStyle(slot)}`}
+                              >
+                                {slot.status === 'LOCKED' && '⏳'}
+                                {slot.status === 'RESERVED' && '✓'}
+                              </button>
                           ) : (
                             <div className="w-full h-10 rounded-lg bg-gray-50 border border-gray-100" />
                           )}
