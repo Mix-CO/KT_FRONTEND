@@ -4,12 +4,23 @@ import Layout from '../components/layout/Layout';
 import { getTournament, getTeamsInTournament } from '../api/tournaments';
 import { getMatchesByTournament } from '../api/matches';
 import { getStandingsByTournament } from '../api/standings';
+import { getAiSuggestion } from '../api/ai';
 
 const STATUS_LABELS = {
   SCHEDULED: 'Scheduled',
   CONFIRMED: 'Confirmed',
   PLAYED: 'Played',
   CANCELLED: 'Cancelled',
+};
+
+const DAY_LABELS = {
+  MONDAY: 'Lunes',
+  TUESDAY: 'Martes',
+  WEDNESDAY: 'Miércoles',
+  THURSDAY: 'Jueves',
+  FRIDAY: 'Viernes',
+  SATURDAY: 'Sábado',
+  SUNDAY: 'Domingo',
 };
 
 export default function DashboardPage() {
@@ -19,6 +30,7 @@ export default function DashboardPage() {
   const [matches, setMatches] = useState([]);
   const [standings, setStandings] = useState([]);
   const [teams, setTeams] = useState([]);
+  const [aiSuggestion, setAiSuggestion] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,6 +46,16 @@ export default function DashboardPage() {
         setMatches(m);
         setStandings(s);
         setTeams(te);
+
+        const firstScheduled = m.find((match) => match.status === 'SCHEDULED');
+        if (firstScheduled) {
+          try {
+            const suggestion = await getAiSuggestion(firstScheduled.id);
+            setAiSuggestion(suggestion);
+          } catch (e) {
+            console.error('Error obteniendo sugerencia IA:', e);
+          }
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -70,14 +92,12 @@ export default function DashboardPage() {
         {/* Stats cards */}
         <div className="grid grid-cols-3 gap-4 mb-8">
 
-          {/* Active Teams */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <p className="text-gray-400 text-sm mb-1">Active Teams</p>
             <p className="text-3xl font-bold text-gray-900">{String(teams.length).padStart(2, '0')}</p>
             <p className="text-green-500 text-xs mt-2">↑ registered in tournament</p>
           </div>
 
-          {/* Pending Matches */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <p className="text-gray-400 text-sm mb-1">Pending Matches</p>
             <p className="text-3xl font-bold text-gray-900">{String(pendingMatches).padStart(2, '0')}</p>
@@ -86,7 +106,6 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Next Game */}
           <div className="bg-green-500 rounded-2xl p-5 text-white">
             <p className="text-green-100 text-sm mb-1">Next Game</p>
             {nextMatch ? (
@@ -104,28 +123,39 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* AI Suggestion — mockeado */}
-        <div className="bg-green-500 rounded-2xl p-5 mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="bg-white bg-opacity-20 rounded-xl p-3">
-              <span className="text-white text-xl">📅</span>
+        {/* AI Suggestion */}
+        {aiSuggestion ? (
+          <div className="bg-green-500 rounded-2xl p-5 mb-8 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="bg-white bg-opacity-20 rounded-xl p-3">
+                <span className="text-white text-xl">📅</span>
+              </div>
+              <div>
+                <p className="text-white font-bold">
+                  IA Sugiere: {aiSuggestion.homeTeamName} vs {aiSuggestion.awayTeamName}
+                </p>
+                <p className="text-green-100 text-sm mt-0.5">
+                  {aiSuggestion.explanation}
+                </p>
+                <p className="text-white text-xs font-semibold mt-1">
+                  📆 {DAY_LABELS[aiSuggestion.dayOfWeek] ?? aiSuggestion.dayOfWeek} · {aiSuggestion.startTime} – {aiSuggestion.endTime}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-gray-100 rounded-2xl p-5 mb-8 flex items-center gap-4">
+            <div className="bg-gray-200 rounded-xl p-3">
+              <span className="text-gray-400 text-xl">📅</span>
             </div>
             <div>
-              <p className="text-white font-bold">AI Suggested Slot: Warriors vs. Titans</p>
-              <p className="text-green-100 text-sm mt-0.5">
-                Based on team availability, Saturday at 10:00 AM is the optimal slot with 98% team attendance probability.
+              <p className="text-gray-500 font-bold">Sin sugerencia de IA disponible</p>
+              <p className="text-gray-400 text-sm mt-0.5">
+                No hay partidos pendientes de programar en este torneo.
               </p>
             </div>
           </div>
-          <div className="flex gap-3">
-            <button className="bg-white text-green-600 font-bold text-sm px-4 py-2 rounded-lg hover:bg-green-50 transition">
-              Approve Slot
-            </button>
-            <button className="border border-white text-white font-bold text-sm px-4 py-2 rounded-lg hover:bg-green-600 transition">
-              View Alternatives
-            </button>
-          </div>
-        </div>
+        )}
 
         {/* Bottom grid */}
         <div className="grid grid-cols-2 gap-6">
@@ -138,7 +168,6 @@ export default function DashboardPage() {
                 View All
               </button>
             </div>
-
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-gray-400 text-xs">
@@ -179,7 +208,6 @@ export default function DashboardPage() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="font-bold text-gray-800">Match Results</h2>
             </div>
-
             <div className="flex flex-col gap-3">
               {playedMatches.slice(0, 4).map((match) => (
                 <div key={match.id} className="border border-gray-100 rounded-xl p-3">
