@@ -1,221 +1,168 @@
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
+import { getTeamsByTournament } from '../api/teams';
 
-const TEAM = {
-  name: 'Los Galacticos FC',
-  status: 'ACTIVE',
-  faculty: 'Faculty of Engineering',
-  colors: 'Green & White',
-  founded: '2021',
-  home: 'Central Field',
-};
+function getUserIdFromToken() {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    return JSON.parse(atob(token.split('.')[1])).userId;
+  } catch {
+    return null;
+  }
+}
 
-const STATS = [
-  {
-    title: 'Goles Marcados',
-    value: '24',
-    hint: '+3 since last week',
-  },
-  {
-    title: 'Partidos Ganados',
-    value: '8',
-    hint: 'Partidos Ganados',
-  },
-  {
-    title: 'Rango de Torneo',
-    value: '2nd',
-    hint: 'Rango de Torneo',
-  },
-];
-
-const PLAYERS = [
-  { id: 1, name: 'Carlos Hernandez', position: 'ST', goals: 12 },
-  { id: 2, name: 'David Silva', position: 'CM', goals: 4 },
-  { id: 3, name: 'Marco Rossi', position: 'CB', goals: 1 },
-  { id: 4, name: 'Lucas Viana', position: 'GK', goals: 0 },
-];
-
-const MATCHES = [
-  {
-    id: 1,
-    round: 'LEAGUE ROUND 11',
-    home: 'Galacticos',
-    away: 'The Titans',
-    time: '18:30 PM',
-    venue: 'Main Stadium, Field 2',
-  },
-  {
-    id: 2,
-    round: 'LEAGUE ROUND 12',
-    home: 'Galacticos',
-    away: 'Blue Wings',
-    time: '20:00 PM',
-    venue: 'North Sports Center',
-  },
-];
-
-const POSITION_COLORS = {
-  ST: 'bg-orange-100 text-orange-700',
-  CM: 'bg-blue-100 text-blue-700',
-  CB: 'bg-emerald-100 text-emerald-700',
-  GK: 'bg-amber-100 text-amber-700',
-};
+function getUserNameFromToken() {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    return JSON.parse(atob(token.split('.')[1])).name || null;
+  } catch {
+    return null;
+  }
+}
 
 export default function TeamViewPage() {
   const navigate = useNavigate();
   const { tournamentId } = useParams();
 
-  const totalGoals = useMemo(
-    () => PLAYERS.reduce((acc, player) => acc + player.goals, 0),
-    [],
-  );
+  const [teams, setTeams] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const currentUserName = getUserNameFromToken();
+
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        setLoading(true);
+        const data = await getTeamsByTournament(tournamentId);
+        setTeams(data);
+      } catch (err) {
+        setError('No se pudieron cargar los equipos del torneo.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeams();
+  }, [tournamentId]);
+
+  const myTeam = teams.find((t) => t.captainName === currentUserName);
 
   return (
     <Layout>
       <div className="min-h-screen bg-gray-100 p-6 lg:p-8">
-        <div className="mx-auto max-w-[1300px] space-y-5">
+        <div className="mx-auto max-w-[1100px] space-y-6">
 
-          <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-            <div className="p-5 lg:p-6 flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-8">
-              <div className="h-24 w-24 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-center text-xs text-gray-400 font-bold">
-                TEAM
-              </div>
-
-              <div className="flex-1">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-3xl font-black text-gray-900">{TEAM.name}</h1>
-                  <span className="inline-flex items-center rounded-full bg-green-500 text-white text-xs font-bold px-3 py-1">
-                    {TEAM.status}
-                  </span>
-                </div>
-
-                <p className="text-sm text-gray-500 mt-1">{TEAM.faculty}</p>
-
-                <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2 text-sm text-gray-500">
-                  <span>{TEAM.colors}</span>
-                  <span>Founded: {TEAM.founded}</span>
-                  <span>Home: {TEAM.home}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => navigate(`/tournament/${tournamentId}/teams/new`)}
-                  className="rounded-xl bg-green-500 hover:bg-green-600 text-white font-bold px-5 py-2.5 transition"
-                >
-                  Editar Equipo
-                </button>
-                <button
-                  type="button"
-                  className="h-10 w-10 rounded-xl border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition"
-                  aria-label="Compartir"
-                >
-                  ↗
-                </button>
-              </div>
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-black text-gray-900">Equipos</h1>
+              <p className="text-sm text-gray-500 mt-1">
+                {teams.length} equipo{teams.length !== 1 ? 's' : ''} registrado{teams.length !== 1 ? 's' : ''} en el torneo
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={() => navigate(`/tournament/${tournamentId}/teams/new`)}
+              className="rounded-xl bg-green-500 hover:bg-green-600 text-white font-bold px-5 py-2.5 transition text-sm"
+            >
+              + Crear Equipo
+            </button>
+          </div>
 
-            <div className="border-t border-gray-100 px-5 lg:px-6">
-              <div className="flex items-center gap-7 text-sm font-semibold text-gray-500">
-                <button type="button" className="py-3">Overview</button>
-                <button type="button" className="py-3 text-green-600 border-b-2 border-green-500">Roster</button>
-                <button type="button" className="py-3">Schedule</button>
-                <button type="button" className="py-3">Statistics</button>
+          {/* Mi equipo shortcut */}
+          {myTeam && (
+            <div
+              className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-green-100 transition"
+              onClick={() => navigate(`/tournament/${tournamentId}/teams/${myTeam.id}`)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-green-500 flex items-center justify-center text-white font-black text-sm">
+                  {myTeam.name.charAt(0)}
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-green-600 uppercase tracking-wide">Mi Equipo</p>
+                  <p className="font-bold text-gray-900">{myTeam.name}</p>
+                </div>
               </div>
+              <span className="text-green-500 font-bold text-lg">→</span>
             </div>
-          </section>
+          )}
 
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {STATS.map((stat) => (
-              <article key={stat.title} className="bg-white rounded-2xl border border-gray-200 p-5">
-                <p className="text-sm font-semibold text-gray-400">{stat.title}</p>
-                <p className="text-4xl font-black text-gray-900 mt-2">{stat.value}</p>
-                <p className="text-xs text-green-500 mt-2">{stat.hint}</p>
-              </article>
-            ))}
-          </section>
+          {/* Estado de carga / error */}
+          {loading && (
+            <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+              <p className="text-gray-400 font-semibold">Cargando equipos...</p>
+            </div>
+          )}
 
-          <section className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-5 items-start">
-            <article className="bg-white rounded-2xl border border-gray-200 p-5 lg:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-3xl font-black text-gray-900">Plantilla del Equipo</h2>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/tournament/${tournamentId}/teams/new`)}
-                  className="text-green-600 font-bold text-sm hover:underline"
-                >
-                  Anadir Jugador
-                </button>
-              </div>
+          {error && !loading && (
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+              <p className="text-red-600 font-semibold">{error}</p>
+            </div>
+          )}
 
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
-                <table className="w-full min-w-[640px] text-sm">
-                  <thead className="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-500">
+          {/* Lista de equipos */}
+          {!loading && !error && teams.length === 0 && (
+            <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+              <p className="text-4xl mb-3">👥</p>
+              <p className="font-bold text-gray-700">No hay equipos registrados aún</p>
+              <p className="text-sm text-gray-400 mt-1">Sé el primero en crear un equipo para este torneo.</p>
+            </div>
+          )}
+
+          {!loading && !error && teams.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-500 border-b border-gray-200">
                     <tr>
-                      <th className="text-left px-4 py-3">Jugador</th>
-                      <th className="text-left px-4 py-3">Posicion</th>
-                      <th className="text-left px-4 py-3">Goles</th>
-                      <th className="text-left px-4 py-3">Accion</th>
+                      <th className="text-left px-5 py-3">Equipo</th>
+                      <th className="text-left px-5 py-3">Capitán</th>
+                      <th className="text-left px-5 py-3">Jugadores</th>
+                      <th className="text-left px-5 py-3">Acción</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {PLAYERS.map((player) => (
-                      <tr key={player.id} className="border-t border-gray-100">
-                        <td className="px-4 py-3">
+                    {teams.map((team, idx) => (
+                      <tr
+                        key={team.id}
+                        className={`border-t border-gray-100 hover:bg-gray-50 transition ${idx % 2 === 0 ? '' : 'bg-gray-50/40'}`}
+                      >
+                        <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-gray-200" />
-                            <span className="font-semibold text-gray-800">{player.name}</span>
+                            <div className="h-9 w-9 rounded-xl bg-green-100 flex items-center justify-center text-green-700 font-black text-sm flex-shrink-0">
+                              {team.name.charAt(0)}
+                            </div>
+                            <span className="font-semibold text-gray-900">{team.name}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex rounded-md px-2 py-1 text-[11px] font-bold uppercase ${POSITION_COLORS[player.position]}`}>
-                            {player.position}
+                        <td className="px-5 py-4 text-gray-600">{team.captainName || '—'}</td>
+                        <td className="px-5 py-4">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 text-gray-600 text-xs font-bold px-2.5 py-1">
+                            👤 {team.players?.length ?? 0}
                           </span>
                         </td>
-                        <td className="px-4 py-3 font-bold text-gray-800">{player.goals}</td>
-                        <td className="px-4 py-3 text-gray-400">⋮</td>
+                        <td className="px-5 py-4">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/tournament/${tournamentId}/teams/${team.id}`)}
+                            className="rounded-lg border border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-600 text-xs font-bold px-3 py-1.5 transition"
+                          >
+                            Ver →
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-
-              <p className="mt-4 text-xs text-gray-500">Total de goles del plantel: {totalGoals}</p>
-            </article>
-
-            <aside className="space-y-4">
-              <article className="bg-white rounded-2xl border border-gray-200 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-2xl font-black text-gray-900">Proximos Partidos</h3>
-                  <button type="button" className="text-gray-400 hover:text-gray-600">→</button>
-                </div>
-
-                <div className="space-y-3">
-                  {MATCHES.map((match) => (
-                    <div key={match.id} className="rounded-xl border border-gray-200 p-3">
-                      <p className="text-[11px] font-bold text-green-600 uppercase tracking-wide">{match.round}</p>
-                      <div className="mt-2 flex items-center justify-between text-sm font-semibold text-gray-800">
-                        <span>{match.home}</span>
-                        <span className="text-gray-400 text-xs">VS {match.time}</span>
-                        <span>{match.away}</span>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-2">{match.venue}</p>
-                    </div>
-                  ))}
-                </div>
-              </article>
-
-              <article className="bg-white rounded-2xl border border-gray-200 p-4">
-                <h3 className="text-xl font-black text-gray-900 mb-3">Resultado Reciente</h3>
-                <div className="rounded-xl border-l-4 border-green-500 bg-gray-50 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-gray-400 font-bold">Victoria · 2 days ago</p>
-                  <p className="mt-1 text-sm font-bold text-gray-900">Los Galacticos 3 - 1 Phoenix FC</p>
-                </div>
-              </article>
-            </aside>
-          </section>
+            </div>
+          )}
 
         </div>
       </div>

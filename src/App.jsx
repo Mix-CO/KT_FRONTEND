@@ -5,6 +5,7 @@ import NewTournamentPage from './pages/NewTournamentPage';
 import DashboardPage from './pages/DashboardPage';
 import CreateTeamPage from './pages/CreateTeamPage';
 import TeamViewPage from './pages/TeamViewPage';
+import TeamDetailPage from './pages/TeamDetailPage';
 import EditProfilePage from './pages/EditProfilePage';
 import ProfileViewPage from './pages/ProfileViewPage';
 import OAuthCallback from './pages/OAuthCallback';
@@ -24,6 +25,7 @@ function App() {
         <Route path="/tournament/:tournamentId/dashboard" element={<DashboardPage />} />
         <Route path="/tournament/:tournamentId/teams" element={<TeamViewPage />} />
         <Route path="/tournament/:tournamentId/teams/new" element={<CreateTeamPage />} />
+        <Route path="/tournament/:tournamentId/teams/:teamId" element={<TeamDetailPage />} />
         <Route path="/tournament/:tournamentId/scheduling" element={<SchedulingSessionPage />} />
       </Routes>
     </BrowserRouter>
