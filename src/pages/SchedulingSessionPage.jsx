@@ -50,21 +50,44 @@ export default function SchedulingSessionPage() {
   const handleTimeSlotUpdate = useCallback((data) => {
     console.log('>>> WebSocket update received:', data);
     const { timeSlotId, status } = data;
+
     setTimeSlots((prev) =>
-      prev.map((ts) => ts.id === timeSlotId ? { ...ts, status } : ts)
+        prev.map((ts) => {
+          if (ts.id !== timeSlotId) return ts;
+          // Si gana el coin flip, la franja sigue LOCKED para el nuevo dueño
+          if (status === 'COIN_FLIP_WON' || status === 'COIN_FLIP_LOST') return ts;
+          return { ...ts, status };
+        })
     );
+
     if (status === 'RESERVED') {
       refreshMatches();
       setSelectedMatch(null);
       showNotification('¡Franja confirmada!', 'success');
+
     } else if (status === 'LOCKED') {
       showNotification('Una franja fue bloqueada', 'warning');
+
     } else if (status === 'EXPIRED') {
       showNotification('Una franja expiró', 'info');
+
     } else if (status === 'AVAILABLE') {
       showNotification('Una franja fue liberada', 'info');
+
+    } else if (status === 'COIN_FLIP_WON') {
+      // Solo mostrar notificación relevante al usuario actual
+      if (selectedMatch) {
+        getReservationsForMatch(selectedMatch.id).then(setReservations);
+      }
+      showNotification('🪙 ¡Ganaste el sorteo! Tu reserva sigue en espera de confirmación', 'success');
+
+    } else if (status === 'COIN_FLIP_LOST') {
+      if (selectedMatch) {
+        getReservationsForMatch(selectedMatch.id).then(setReservations);
+      }
+      showNotification('🪙 Perdiste el sorteo — la franja fue asignada al otro equipo', 'warning');
     }
-  }, [refreshMatches]);
+  }, [refreshMatches, selectedMatch]);
 
   const { subscribeToTimeSlot } = useWebSocket({
     onTimeSlotUpdate: handleTimeSlotUpdate,
