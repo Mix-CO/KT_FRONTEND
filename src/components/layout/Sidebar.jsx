@@ -1,13 +1,12 @@
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 
 const navItems = [
-  { label: 'Dashboard', icon: '⊞', path: 'dashboard' },
-  { label: 'Tournaments', icon: '🏆', path: 'tournaments-detail' },
-  { label: 'Schedules', icon: '📅', path: 'schedules' },
+  { label: 'Dashboard', icon: '🏠', path: 'dashboard' },
   { label: 'Teams', icon: '👥', path: 'teams' },
+  { label: 'Matches', icon: '⚽', path: 'matches' },
   { label: 'Standings', icon: '📊', path: 'standings' },
+  { label: 'Scheduling', icon: '📅', path: 'scheduling' },
   { label: 'Perfil', icon: '👤', path: '/profile', isGlobal: true },
-  { label: 'Schedules', icon: '📅', path: 'scheduling' },
 ];
 
 export default function Sidebar() {
@@ -20,7 +19,6 @@ export default function Sidebar() {
   return (
     <div className="w-56 min-h-screen bg-white border-r border-gray-100 flex flex-col justify-between py-6 px-4">
 
-      {/* Logo */}
       <div>
         <div className="flex items-center gap-2 mb-8 px-2">
           <div className="bg-green-500 rounded-lg p-1.5">
@@ -32,7 +30,6 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* Nav */}
         <nav className="flex flex-col gap-1">
           {navItems.map((item) => {
             const fallbackTournamentId = activeTournament?.id;
@@ -42,7 +39,7 @@ export default function Sidebar() {
               : resolvedTournamentId
                 ? `/tournament/${resolvedTournamentId}/${item.path}`
                 : '/tournaments';
-            const isActive = location.pathname.includes(item.path);
+            const isActive = location.pathname.endsWith(item.path);
             return (
               <button
                 key={item.path}
@@ -61,7 +58,6 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {/* Logout */}
       <button
         onClick={() => {
           localStorage.removeItem('token');

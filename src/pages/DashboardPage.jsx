@@ -1,17 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { getTournament, getTeamsInTournament } from '../api/tournaments';
 import { getMatchesByTournament } from '../api/matches';
 import { getStandingsByTournament } from '../api/standings';
 import { getAiSuggestion } from '../api/ai';
-
-const STATUS_LABELS = {
-  SCHEDULED: 'Scheduled',
-  CONFIRMED: 'Confirmed',
-  PLAYED: 'Played',
-  CANCELLED: 'Cancelled',
-};
 
 const DAY_LABELS = {
   MONDAY: 'Lunes',
@@ -25,6 +18,7 @@ const DAY_LABELS = {
 
 export default function DashboardPage() {
   const { tournamentId } = useParams();
+  const navigate = useNavigate();
 
   const [tournament, setTournament] = useState(null);
   const [matches, setMatches] = useState([]);
@@ -77,7 +71,12 @@ export default function DashboardPage() {
 
   const pendingMatches = matches.filter((m) => m.status === 'SCHEDULED').length;
   const playedMatches = matches.filter((m) => m.status === 'PLAYED');
-  const nextMatch = matches.find((m) => m.status === 'CONFIRMED');
+
+  // Fix: muestra CONFIRMED primero, si no hay muestra el primer SCHEDULED
+  const nextMatch =
+    matches.find((m) => m.status === 'CONFIRMED') ||
+    matches.find((m) => m.status === 'SCHEDULED');
+  const nextMatchLabel = nextMatch?.status === 'CONFIRMED' ? 'Confirmed' : 'Scheduled';
 
   return (
     <Layout>
@@ -110,11 +109,11 @@ export default function DashboardPage() {
             <p className="text-green-100 text-sm mb-1">Next Game</p>
             {nextMatch ? (
               <>
-                <p className="text-2xl font-bold">
+                <p className="text-xl font-bold leading-tight">
                   {nextMatch.homeTeamName} vs {nextMatch.awayTeamName}
                 </p>
                 <span className="bg-white text-green-600 text-xs font-bold px-2 py-0.5 rounded-full mt-2 inline-block">
-                  Confirmed
+                  {nextMatchLabel}
                 </span>
               </>
             ) : (
@@ -164,7 +163,10 @@ export default function DashboardPage() {
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <div className="flex justify-between items-center mb-4">
               <h2 className="font-bold text-gray-800">Live Standings</h2>
-              <button className="text-green-500 text-sm font-semibold hover:underline">
+              <button
+                onClick={() => navigate(`/tournament/${tournamentId}/standings`)}
+                className="text-green-500 text-sm font-semibold hover:underline"
+              >
                 View All
               </button>
             </div>
