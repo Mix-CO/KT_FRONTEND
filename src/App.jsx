@@ -10,6 +10,8 @@ import EditProfilePage from './pages/EditProfilePage';
 import ProfileViewPage from './pages/ProfileViewPage';
 import OAuthCallback from './pages/OAuthCallback';
 import SchedulingSessionPage from './pages/SchedulingSessionPage';
+import StandingsPage from './pages/StandingsPage';
+import MatchesPage from './pages/MatchesPage';
 
 function App() {
   return (
@@ -27,6 +29,8 @@ function App() {
         <Route path="/tournament/:tournamentId/teams/new" element={<CreateTeamPage />} />
         <Route path="/tournament/:tournamentId/teams/:teamId" element={<TeamDetailPage />} />
         <Route path="/tournament/:tournamentId/scheduling" element={<SchedulingSessionPage />} />
+        <Route path="/tournament/:tournamentId/standings" element={<StandingsPage />} />
+        <Route path="/tournament/:tournamentId/matches" element={<MatchesPage />} />
       </Routes>
     </BrowserRouter>
   );
